@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="es-UY">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Saldo Real</title>
+<meta name="description" content="Cuánta plata te queda de verdad: la cuenta menos lo que debés en la tarjeta.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Saldo Real">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#EDF1EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1412" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}html{-webkit-text-size-adjust:100%}body{margin:0;min-height:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: una sola columna de celular. Arriba la cuenta que importa (cuenta − tarjeta = lo que queda), después las tres acciones, el mes y los movimientos. */
+:root{
+  --bg:#EDF1EE; --surface:#FBFCFB; --ink:#13201C; --muted:#5A6963; --line:#D3DBD6;
+  --accent:#2545D3; --on-accent:#FFFFFF;
+  --card:#A82A72; --card-soft:#F3DCEA;
+  --free:#12784F; --free-soft:#D6EDE1;
+  --bad:#C0322B;
+  --shade:rgba(10,20,16,.45);
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1412; --surface:#171F1C; --ink:#E7EEEA; --muted:#93A39C; --line:#2A3531;
+    --accent:#8FA3FF; --on-accent:#0B1020;
+    --card:#EC86BD; --card-soft:#3A1E2E;
+    --free:#5FD3A0; --free-soft:#163427;
+    --bad:#FF8078; --shade:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1412; --surface:#171F1C; --ink:#E7EEEA; --muted:#93A39C; --line:#2A3531;
+  --accent:#8FA3FF; --on-accent:#0B1020;
+  --card:#EC86BD; --card-soft:#3A1E2E;
+  --free:#5FD3A0; --free-soft:#163427;
+  --bad:#FF8078; --shade:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:480px;margin-inline:auto;padding-inline:16px;padding-block:14px 48px;display:flex;flex-direction:column;gap:22px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.marca{font-family:var(--display);font-weight:700;font-size:1.05rem;letter-spacing:-.01em}
+.top-der{display:flex;align-items:center;gap:10px;min-width:0}
+.estado{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-txt{background:none;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:.85rem;font-weight:600}
+
+.aviso{background:var(--card-soft);border-radius:12px;padding:12px 14px;font-size:.9rem;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.aviso button{background:var(--ink);color:var(--bg);border:0;border-radius:999px;padding:7px 14px;font-weight:600;font-size:.85rem;flex:none}
+
+.hero{display:flex;flex-direction:column;gap:14px}
+.rot{font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.libre{font-family:var(--display);font-weight:700;font-size:clamp(2.6rem,13vw,4rem);line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin:6px 0 0;overflow-wrap:anywhere}
+.libre.neg{color:var(--bad)}
+.libre-nota{margin:0;color:var(--muted);font-size:.95rem}
+.barra{height:14px;border-radius:999px;background:var(--free);overflow:hidden;display:flex;justify-content:flex-end}
+.barra.vacia{background:var(--line)}
+.barra i{display:block;height:100%;background:repeating-linear-gradient(135deg,var(--card) 0 6px,var(--card-soft) 6px 10px);transition:width .35s ease}
+.cuenta-linea{display:flex;flex-direction:column;gap:8px;margin:0}
+.cuenta-linea div{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.cuenta-linea dt{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.cuenta-linea dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.pt{width:10px;height:10px;border-radius:3px;flex:none}
+.pt.c{background:var(--free)} .pt.t{background:var(--card)}
+.sub{display:block;font-weight:400;font-size:.8rem;color:var(--muted)}
+
+.acciones{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px}
+.acc{border:0;border-radius:14px;padding:14px 8px;font-weight:600;font-size:.95rem;min-height:54px;line-height:1.15}
+.acc.gasto{background:var(--accent);color:var(--on-accent)}
+.acc.ingreso{background:var(--free-soft);color:var(--free)}
+.acc.pago{background:var(--card-soft);color:var(--card)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
+h2{font-family:var(--display);font-weight:700;font-size:1.15rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.panel p{margin:0;color:var(--muted)}
+
+.mes-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mes-top strong{font-family:var(--display);font-size:1.5rem;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mes-det{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.mes-det b{color:var(--ink);font-weight:600}
+.cats{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.cats li{display:grid;grid-template-columns:92px 1fr auto;gap:10px;align-items:center;font-size:.88rem}
+.cats .tr{height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+.cats .tr i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.cats .v{font-variant-numeric:tabular-nums;font-weight:600}
+
+.lista{display:flex;flex-direction:column;gap:18px}
+.dia h3{margin:0 0 6px;font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.filas{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.fila{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:12px 14px;text-align:left}
+.fila:first-child{border-top:0}
+.fila .izq{min-width:0;display:flex;flex-direction:column;gap:3px}
+.fila .nom{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila .meta{display:flex;gap:8px;align-items:center;font-size:.78rem;color:var(--muted)}
+.chip{border-radius:6px;padding:1px 7px;font-weight:600;background:var(--line);color:var(--ink)}
+.chip.t{background:var(--card-soft);color:var(--card)}
+.chip.i{background:var(--free-soft);color:var(--free)}
+.fila .imp{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.imp.t{color:var(--card)} .imp.i{color:var(--free)}
+.mas{align-self:center}
+.vacio{color:var(--muted);text-align:center;margin:0}
+
+.campo{display:flex;flex-direction:column;gap:6px}
+.campo>label,.campo>.lbl{font-size:.8rem;font-weight:600;color:var(--muted)}
+.in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:1rem;min-width:0}
+.in.grande{font-family:var(--display);font-size:1.7rem;font-weight:700;padding:10px 14px;font-variant-numeric:tabular-nums}
+.monto-fila{display:flex;gap:8px;align-items:stretch}
+.monto-fila .in{flex:1}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--line);padding:4px;border-radius:12px}
+.seg input,.chips input{position:absolute;opacity:0;pointer-events:none}
+.seg label{text-align:center;padding:10px 12px;border-radius:9px;font-weight:600;font-size:.92rem;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.seg input:checked+label{background:var(--surface);color:var(--ink)}
+.seg input:focus-visible+label,.chips input:focus-visible+label{outline:2px solid var(--accent);outline-offset:1px}
+.seg.mini{flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:.9rem;cursor:pointer}
+.chips input:checked+label{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pista{margin:0;font-size:.88rem;color:var(--muted)}
+.error{margin:0;color:var(--bad);font-size:.9rem;font-weight:500;min-height:1.2em}
+.btn{border:0;border-radius:14px;padding:14px;font-weight:600;font-size:1rem;background:var(--accent);color:var(--on-accent);width:100%}
+.btn.sec{background:none;color:var(--bad);border:1px solid var(--line)}
+
+.overlay{position:fixed;inset:0;background:var(--shade);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+.sheet{background:var(--surface);width:100%;max-width:480px;max-height:92%;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;animation:sube .22s ease}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.x{background:var(--bg);border:0;border-radius:999px;width:36px;height:36px;font-size:1rem;flex:none}
+@keyframes sube{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.dos{display:flex;flex-wrap:wrap;gap:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;font-weight:500;z-index:20;max-width:calc(100% - 32px);text-align:center}
+@media (prefers-reduced-motion: reduce){.sheet{animation:none}.barra i{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <span class="marca">Saldo Real</span>
+    <span class="top-der">
+      <span class="estado" id="estado">Cargando…</span>
+      <button type="button" class="btn-txt" id="btn-ajustes">Ajustes</button>
+    </span>
+  </header>
+
+  <div class="aviso" id="aviso" hidden><span id="aviso-txt"></span><button type="button" id="aviso-btn" hidden>Reintentar</button></div>
+
+  <section class="hero" aria-live="polite">
+    <div>
+      <span class="rot">Te queda de verdad</span>
+      <p class="libre" id="libre">…</p>
+    </div>
+    <p class="libre-nota" id="libre-nota">Cargando tus datos…</p>
+    <div class="barra vacia" id="barra" role="img" aria-label="Parte de tu cuenta que ya le debés a la tarjeta"><i id="barra-tar" style="width:0"></i></div>
+    <dl class="cuenta-linea">
+      <div><dt><span class="pt c"></span>En la cuenta</dt><dd id="v-cuenta">—</dd></div>
+      <div><dt><span class="pt t"></span>Debés en la tarjeta</dt><dd><span id="v-tarjeta">—</span><span class="sub" id="v-usd" hidden></span></dd></div>
+    </dl>
+  </section>
+
+  <nav class="acciones" aria-label="Cargar movimiento">
+    <button type="button" class="acc gasto" data-tipo="gasto">+ Gasto</button>
+    <button type="button" class="acc ingreso" data-tipo="ingreso">+ Ingreso</button>
+    <button type="button" class="acc pago" data-tipo="pago">Pagar tarjeta</button>
+  </nav>
+
+  <form class="panel" id="inicio" hidden novalidate>
+    <h2>Arrancá con lo que tenés hoy</h2>
+    <p>Poné los números de este momento. De ahí en más, cada gasto o ingreso que cargues los va moviendo solos.</p>
+    <div class="campo"><label for="ob-cuenta">Plata en tu cuenta hoy</label><input class="in grande" id="ob-cuenta" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+    <div class="campo"><label for="ob-tarjeta">Lo que ya debés en la tarjeta (si no debés nada, dejalo vacío)</label><input class="in" id="ob-tarjeta" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+    <p class="error" id="ob-error" role="alert"></p>
+    <button class="btn" type="submit">Empezar</button>
+  </form>
+
+  <section class="panel" id="mes" hidden>
+    <div class="mes-top"><h2 id="mes-titulo">Este mes</h2><strong id="mes-total"></strong></div>
+    <div class="mes-det" id="mes-det"></div>
+    <ul class="cats" id="mes-cats"></ul>
+  </section>
+
+  <section class="lista" id="lista" aria-label="Movimientos"></section>
+</div>
+
+<div class="overlay" id="hoja" hidden>
+  <form class="sheet" id="f" novalidate>
+    <div class="sheet-head"><h2 id="f-titulo">Nuevo gasto</h2><button type="button" class="x" data-cerrar aria-label="Cerrar">✕</button></div>
+    <div class="seg" id="g-medio">
+      <input type="radio" name="medio" id="m-credito" value="credito"><label for="m-credito">Tarjeta de crédito</label>
+      <input type="radio" name="medio" id="m-cuenta" value="cuenta"><label for="m-cuenta">Débito o efectivo</label>
+    </div>
+    <div class="campo">
+      <label for="f-monto" id="f-monto-lbl">Monto</label>
+      <div class="monto-fila">
+        <div class="seg mini" id="g-moneda">
+          <input type="radio" name="moneda" id="mo-uyu" value="UYU"><label for="mo-uyu">$</label>
+          <input type="radio" name="moneda" id="mo-usd" value="USD"><label for="mo-usd">US$</label>
+        </div>
+        <input class="in grande" id="f-monto" inputmode="decimal" autocomplete="off" placeholder="0">
+      </div>
+    </div>
+    <p class="pista" id="f-pista" hidden></p>
+    <div class="campo" id="g-cot"><label for="f-cot">Cotización del dólar, en pesos</label><input class="in" id="f-cot" inputmode="decimal" autocomplete="off" placeholder="Ej.: lo que marca tu banco hoy"></div>
+    <div class="campo" id="g-cat"><span class="lbl">Categoría (opcional)</span><div class="chips" id="f-cats"></div></div>
+    <div class="campo" id="g-nota"><label for="f-nota">¿En qué?</label><input class="in" id="f-nota" maxlength="80" autocomplete="off" placeholder="Ej.: súper del sábado"></div>
+    <div class="campo"><label for="f-fecha">Fecha</label><input class="in" id="f-fecha" type="date"></div>
+    <p class="error" id="f-error" role="alert"></p>
+    <button class="btn" type="submit">Guardar</button>
+    <button class="btn sec" type="button" id="f-borrar" hidden>Borrar</button>
+  </form>
+</div>
+
+<div class="overlay" id="ajustes" hidden>
+  <form class="sheet" id="fa" novalidate>
+    <div class="sheet-head"><h2>Ajustes</h2><button type="button" class="x" data-cerrar aria-label="Cerrar">✕</button></div>
+    <div class="campo"><label for="a-cot">Cotización del dólar, en pesos</label><input class="in" id="a-cot" inputmode="decimal" autocomplete="off"></div>
+    <p class="pista">Se usa para pasar a pesos lo que debés en dólares en la tarjeta.</p>
+    <div class="campo"><label for="a-cuenta">Corregir la plata de la cuenta: ¿cuánto hay de verdad?</label><input class="in" id="a-cuenta" inputmode="decimal" autocomplete="off"></div>
+    <div class="campo"><label for="a-tarjeta">Corregir la deuda de la tarjeta en pesos: ¿cuánto debés de verdad?</label><input class="in" id="a-tarjeta" inputmode="decimal" autocomplete="off"></div>
+    <p class="pista">Si un número no coincide con el del banco, escribí el real y queda anotado como una corrección.</p>
+    <div class="campo" id="g-copia" hidden>
+      <span class="lbl">Copia de seguridad</span>
+      <div class="dos"><button type="button" class="btn-txt" id="c-guardar">Guardar una copia</button><button type="button" class="btn-txt" id="c-restaurar">Restaurar una copia</button></div>
+      <input type="file" id="c-archivo" accept=".json,.txt,application/json,text/plain" hidden>
+      <p class="pista">Tus datos viven solo en este teléfono. Guardá una copia cada tanto en Archivos o iCloud por si cambiás de celular o borrás la app.</p>
+    </div>
+    <p class="error" id="a-error" role="alert"></p>
+    <button class="btn" type="submit">Guardar ajustes</button>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var nf=new Intl.NumberFormat('es-UY',{maximumFractionDigits:2});
+var CATS=['Súper','Comida','Transporte','Servicios','Salud','Ocio','Compras','Otros'];
+var AUTONOMA=!(window.claude&&typeof window.claude.use==="function");
+var K_LOCAL='saldo-real:local',K_CACHE='saldo-real:cache',MAX_FILAS=80;
+
+function r2(x){return Math.round(x*100)/100}
+function fmt(n,mon){n=r2(n);return (n<0?'−':'')+(mon==='USD'?'US$ ':'$ ')+nf.format(Math.abs(n))}
+function aTexto(n){return String(r2(n)).replace('.',',')}
+function hoy(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function parseMonto(s){
+  s=String(s==null?'':s).trim().replace(/[\s$]|US/gi,'');
+  if(!s)return NaN;
+  var neg=/^[-−]/.test(s); s=s.replace(/^[-−+]/,'');
+  if(s.indexOf(',')>=0)s=s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');
+  if(!/^\d+(\.\d+)?$/.test(s))return NaN;
+  var n=r2(Number(s));
+  return neg?-n:n;
+}
+function h(tag,attrs){
+  var e=document.createElement(tag),k;
+  for(k in attrs||{}){var v=attrs[k];if(v==null||v===false)continue;
+    if(k==='class')e.className=v;else if(k==='text')e.textContent=v;
+    else if(k.indexOf('on')===0)e.addEventListener(k.slice(2),v);else e.setAttribute(k,v)}
+  for(var i=2;i<arguments.length;i++){var c=arguments[i];if(c!=null)e.append(c)}
+  return e;
+}
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function clon(x){return JSON.parse(JSON.stringify(x))}
+function nuevoId(){return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function espera(ms){return new Promise(function(r){setTimeout(r,ms)})}
+
+// ---- estado ----
+var S={months:{},cfg:{}};
+var modo='cargando',cargado=false,verTodo=false;
+var col=null,cfgRef=null,dirty=new Set(),guardando=false,reintentados=new Set();
+var previo=lsGet(K_CACHE)||lsGet(K_LOCAL);
+if(previo&&previo.months)S={months:previo.months,cfg:previo.cfg||{}};
+
+function movs(){
+  var out=[],ym,id;
+  for(ym in S.months)for(id in S.months[ym])out.push(S.months[ym][id]);
+  out.sort(function(a,b){return a.fecha<b.fecha?1:a.fecha>b.fecha?-1:(b.creado||0)-(a.creado||0)});
+  return out;
+}
+function cotActual(list){
+  if(S.cfg&&S.cfg.cot>0)return S.cfg.cot;
+  for(var i=0;i<list.length;i++)if(list[i].cot>0)return list[i].cot;
+  return 0;
+}
+function enPesos(m,cot){return m.moneda==='USD'?m.monto*(m.cot||cot):m.monto}
+function totales(list){
+  var cot=cotActual(list),cuenta=0,tar={UYU:0,USD:0};
+  list.forEach(function(m){
+    var mon=m.moneda==='USD'?'USD':'UYU';
+    if(m.tipo==='gasto'){if(m.medio==='credito')tar[mon]+=m.monto;else cuenta-=enPesos(m,cot)}
+    else if(m.tipo==='ingreso')cuenta+=enPesos(m,cot);
+    else if(m.tipo==='pago'){cuenta-=enPesos(m,cot);tar[mon]-=m.monto}
+    else if(m.tipo==='ajuste'){if(m.medio==='credito')tar[mon]+=m.monto;else cuenta+=m.monto}
+  });
+  var tarjeta=tar.UYU+tar.USD*cot;
+  return {cot:cot,cuenta:r2(cuenta),tarUYU:r2(tar.UYU),tarUSD:r2(tar.USD),tarjeta:r2(tarjeta),libre:r2(cuenta-tarjeta)};
+}
+
+// ---- guardado ----
+function puedeEscribir(){
+  if(modo==='error'){toast('No hay conexión con tus datos. Recargá la página.');return false}
+  if(!cargado){toast('Todavía estoy cargando tus datos. Probá en un segundo.');return false}
+  return true;
+}
+function escribir(k){
+  if(k==='cfg')return cfgRef.set(clon(S.cfg||{}));
+  var items=S.months[k];
+  if(items&&Object.keys(items).length)return col.doc(k).set({items:clon(items)});
+  return col.doc(k).delete();
+}
+function guardar(claves){
+  claves.forEach(function(k){dirty.add(k)});
+  render();
+  if(modo==='local'){lsSet(K_LOCAL,S);dirty.clear();return}
+  lsSet(K_CACHE,S);
+  vaciar();
+}
+async function vaciar(){
+  if(guardando||modo!=='nube')return;
+  guardando=true;avisar(null);pintarEstado();
+  try{
+    while(dirty.size){
+      var k=dirty.values().next().value;dirty.delete(k);
+      try{await escribir(k);reintentados.delete(k)}
+      catch(e){
+        dirty.add(k);
+        if(e&&e.code==='unavailable'&&!reintentados.has(k)){reintentados.add(k);await espera(700+Math.random()*900);continue}
+        throw e;
+      }
+    }
+  }catch(e){
+    reintentados.clear();
+    var lleno=e&&e.code==='quota_exceeded';
+    avisar(lleno?'No queda lugar para guardar más movimientos. Borrá algunos viejos y reintentá.':'El último cambio no se guardó. Revisá la conexión y reintentá.',true);
+  }finally{guardando=false;pintarEstado()}
+}
+function modoLocal(){
+  modo='local';
+  var loc=lsGet(K_LOCAL);
+  S=loc&&loc.months?{months:loc.months,cfg:loc.cfg||{}}:{months:{},cfg:{}};
+  cargado=true;
+  if(!AUTONOMA)avisar('No pude abrir el guardado de tu cuenta, así que por ahora los datos quedan solo en este dispositivo.');
+  render();
+}
+async function conectar(){
+  var db=null,user=null,uid=null;
+  if(AUTONOMA){modoLocal();return}
+  try{
+    if(window.claude&&typeof window.claude.use==='function'){
+      var r=await Promise.all([window.claude.use('db'),window.claude.use('user')]);db=r[0];user=r[1];
+    }
+    if(user)uid=await user.id();
+  }catch(e){}
+  if(!db||!uid){modoLocal();return}
+  try{
+    col=db.doc('data/users/'+uid+'/libro').collection('meses');
+    cfgRef=db.doc('data/users/'+uid+'/config');
+  }catch(e){modoLocal();return}
+  modo='nube';pintarEstado();
+  col.onSnapshot(function(snap){
+    if(dirty.size||guardando)return;
+    var months={};
+    snap.docs.forEach(function(d){var x=d.data();if(x&&x.items)months[d.id]=clon(x.items)});
+    if(snap.metadata&&snap.metadata.fromCache&&snap.empty&&!cargado)return;
+    S.months=months;cargado=true;lsSet(K_CACHE,S);render();
+  },function(){
+    modo='error';
+    avisar('Se cortó la conexión con tus datos guardados. Recargá la página para seguir.');
+    render();
+  });
+  cfgRef.onSnapshot(function(s){
+    if(dirty.has('cfg')||guardando)return;
+    S.cfg=s.exists?clon(s.data()||{}):{};
+    lsSet(K_CACHE,S);render();
+  },function(){});
+  setTimeout(function(){if(!cargado&&modo==='nube'){cargado=true;render()}},8000);
+}
+
+// ---- pantalla ----
+function avisar(txt,reintentar){
+  $('aviso').hidden=!txt;
+  $('aviso-txt').textContent=txt||'';
+  $('aviso-btn').hidden=!reintentar;
+}
+var tToast=null;
+function toast(txt){
+  var t=$('toast');t.textContent=txt;t.hidden=false;
+  clearTimeout(tToast);tToast=setTimeout(function(){t.hidden=true},2600);
+}
+function pintarEstado(){
+  var e=$('estado');
+  if(modo==='local')e.textContent=AUTONOMA?'Guardado en este teléfono':'Solo en este dispositivo';
+  else if(modo==='error')e.textContent='Sin conexión';
+  else if(!cargado)e.textContent='Cargando…';
+  else if(guardando)e.textContent='Guardando…';
+  else if(dirty.size)e.textContent='Sin guardar';
+  else e.textContent='Guardado';
+}
+function nombreDia(f){
+  var t=hoy();if(f===t)return 'Hoy';
+  var p=f.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]);
+  var a=new Date();a.setDate(a.getDate()-1);
+  if(d.toDateString()===a.toDateString())return 'Ayer';
+  var o={weekday:'short',day:'numeric',month:'short'};
+  if(p[0]!==t.slice(0,4))o.year='numeric';
+  return new Intl.DateTimeFormat('es-UY',o).format(d);
+}
+function fila(m){
+  var nom,chip,cls='',imp;
+  if(m.tipo==='gasto'){
+    nom=m.nota||m.cat||'Gasto';
+    chip=m.medio==='credito'?h('span',{class:'chip t',text:'Tarjeta'}):h('span',{class:'chip',text:'Cuenta'});
+    cls=m.medio==='credito'?' t':'';imp=fmt(-m.monto,m.moneda);
+  }else if(m.tipo==='ingreso'){nom=m.nota||'Ingreso';chip=h('span',{class:'chip i',text:'Ingreso'});cls=' i';imp='+'+fmt(m.monto,m.moneda)}
+  else if(m.tipo==='pago'){nom='Pago de tarjeta';chip=h('span',{class:'chip',text:'Sale de la cuenta'});imp=fmt(-m.monto,m.moneda)}
+  else{nom=m.nota||'Corrección';chip=h('span',{class:'chip',text:m.medio==='credito'?'Tarjeta':'Cuenta'});imp=(m.monto>0?'+':'')+fmt(m.monto,m.moneda)}
+  var meta=h('span',{class:'meta'},chip);
+  if(m.tipo==='gasto'&&m.nota&&m.cat)meta.append(h('span',{text:m.cat}));
+  return h('button',{type:'button',class:'fila',onclick:function(){abrir(m.tipo,m)}},
+    h('span',{class:'izq'},h('span',{class:'nom',text:nom}),meta),
+    h('span',{class:'imp'+cls,text:imp}));
+}
+function render(){
+  var list=movs(),t=totales(list),vacio=list.length===0;
+  pintarEstado();
+  var libre=$('libre'),nota=$('libre-nota'),barra=$('barra');
+  if(vacio&&!cargado){
+    libre.textContent='…';libre.className='libre';nota.textContent='Cargando tus datos…';
+    $('v-cuenta').textContent='—';$('v-tarjeta').textContent='—';
+  }else{
+    libre.textContent=fmt(t.libre);
+    libre.className='libre'+(t.libre<0?' neg':'');
+    if(vacio)nota.textContent='Es lo que tenés en la cuenta menos lo que le debés a la tarjeta.';
+    else if(t.libre<0)nota.textContent='Te faltan '+fmt(-t.libre)+' para cubrir la tarjeta.';
+    else if(t.tarjeta>0)nota.textContent='Es lo que te queda después de pagar toda la tarjeta.';
+    else nota.textContent='No le debés nada a la tarjeta.';
+    $('v-cuenta').textContent=fmt(t.cuenta);
+    $('v-tarjeta').textContent=fmt(t.tarjeta>0?-t.tarjeta:Math.abs(t.tarjeta)===0?0:-t.tarjeta);
+  }
+  var usd=$('v-usd');
+  if(t.tarUSD!==0){
+    usd.hidden=false;
+    usd.textContent=fmt(t.tarUYU)+' + '+fmt(t.tarUSD,'USD')+(t.cot?' a $ '+nf.format(t.cot):' (falta la cotización)');
+  }else usd.hidden=true;
+  var pct=t.cuenta>0?Math.max(0,Math.min(1,t.tarjeta/t.cuenta))*100:(t.tarjeta>0?100:0);
+  barra.className='barra'+(t.cuenta<=0&&t.tarjeta<=0?' vacia':'');
+  $('barra-tar').style.width=pct.toFixed(1)+'%';
+
+  $('inicio').hidden=!(cargado&&vacio&&modo!=='error');
+
+  // mes
+  var ym=hoy().slice(0,7),gT=0,gC=0,ing=0,cats={};
+  list.forEach(function(m){
+    if(m.fecha.slice(0,7)!==ym)return;
+    var p=enPesos(m,t.cot);
+    if(m.tipo==='gasto'){if(m.medio==='credito')gT+=p;else gC+=p;var c=m.cat||'Sin categoría';cats[c]=(cats[c]||0)+p}
+    else if(m.tipo==='ingreso')ing+=p;
+  });
+  var mes=$('mes');mes.hidden=vacio;
+  if(!vacio){
+    var nm=new Intl.DateTimeFormat('es-UY',{month:'long'}).format(new Date());
+    $('mes-titulo').textContent='Gastado en '+nm;
+    $('mes-total').textContent=fmt(gT+gC);
+    $('mes-det').replaceChildren(
+      h('span',null,'Con tarjeta ',h('b',{text:fmt(gT)})),
+      h('span',null,'De la cuenta ',h('b',{text:fmt(gC)})),
+      h('span',null,'Entró ',h('b',{text:fmt(ing)})));
+    var orden=Object.keys(cats).sort(function(a,b){return cats[b]-cats[a]}),max=orden.length?cats[orden[0]]:0;
+    var ul=$('mes-cats');ul.hidden=orden.length<2;
+    ul.replaceChildren.apply(ul,orden.map(function(c){
+      var i=h('i');i.style.width=(max>0?cats[c]/max*100:0).toFixed(1)+'%';
+      return h('li',null,h('span',{text:c}),h('span',{class:'tr'},i),h('span',{class:'v',text:fmt(cats[c])}));
+    }));
+  }
+
+  // lista
+  var cont=$('lista'),nodos=[],visibles=verTodo?list:list.slice(0,MAX_FILAS),dia=null,filas=null;
+  visibles.forEach(function(m){
+    if(m.fecha!==dia){dia=m.fecha;filas=h('div',{class:'filas'});nodos.push(h('div',{class:'dia'},h('h3',{text:nombreDia(dia)}),filas))}
+    filas.append(fila(m));
+  });
+  if(list.length>visibles.length)nodos.push(h('button',{type:'button',class:'btn-txt mas',text:'Ver los '+(list.length-visibles.length)+' anteriores',onclick:function(){verTodo=true;render()}}));
+  cont.replaceChildren.apply(cont,nodos);
+}
+
+// ---- formulario de movimiento ----
+var edit=null,tipoF='gasto',tBorrar=null;
+function radio(n){var e=document.querySelector('input[name="'+n+'"]:checked');return e?e.value:''}
+function setRadio(n,v){document.querySelectorAll('input[name="'+n+'"]').forEach(function(e){e.checked=e.value===v})}
+function ajustarForm(){
+  var conMoneda=(tipoF==='gasto'&&radio('medio')==='credito')||tipoF==='pago';
+  $('g-medio').hidden=tipoF!=='gasto';
+  $('g-moneda').hidden=!conMoneda;
+  if(!conMoneda)setRadio('moneda','UYU');
+  $('g-cot').hidden=!(conMoneda&&radio('moneda')==='USD');
+  $('g-cat').hidden=tipoF!=='gasto';
+  $('g-nota').hidden=tipoF==='pago';
+  $('f-monto-lbl').textContent=tipoF==='ajuste'?'Monto de la corrección (con − si resta)':tipoF==='pago'?'¿Cuánto pagás?':'Monto';
+  var pista=$('f-pista');
+  if(tipoF==='pago'){
+    var t=totales(movs());
+    pista.hidden=false;
+    pista.textContent=t.tarUYU>0||t.tarUSD>0?'Hoy debés '+fmt(Math.max(t.tarUYU,0))+(t.tarUSD>0?' y '+fmt(t.tarUSD,'USD'):'')+'. El pago sale de tu cuenta y baja la deuda.':'Hoy no le debés nada a la tarjeta.';
+  }else pista.hidden=true;
+}
+function abrir(tipo,mov){
+  if(!puedeEscribir())return;
+  edit=mov||null;tipoF=tipo;
+  var tit={gasto:'gasto',ingreso:'ingreso',pago:'pago de tarjeta',ajuste:'corrección'}[tipo];
+  $('f-titulo').textContent=mov?'Editar '+tit:(tipo==='pago'?'Pagar la tarjeta':'Nuevo '+tit);
+  setRadio('medio',mov?(mov.medio||'credito'):'credito');
+  setRadio('moneda',mov&&mov.moneda==='USD'?'USD':'UYU');
+  setRadio('cat',mov&&mov.cat||'');
+  $('f-nota').value=mov&&mov.nota||'';
+  $('f-fecha').value=mov?mov.fecha:hoy();
+  var t=totales(movs()),cot=(mov&&mov.cot)||t.cot;
+  $('f-cot').value=cot?aTexto(cot):'';
+  $('f-monto').value=mov?aTexto(mov.monto):(tipo==='pago'&&t.tarUYU>0?aTexto(t.tarUYU):'');
+  $('f-error').textContent='';
+  var b=$('f-borrar');b.hidden=!mov;b.textContent='Borrar';b.dataset.ok='';
+  ajustarForm();
+  $('hoja').hidden=false;
+  setTimeout(function(){$('f-monto').focus()},60);
+}
+function cerrar(){$('hoja').hidden=true;$('ajustes').hidden=true;edit=null}
+function poner(m){var ym=m.fecha.slice(0,7);if(!S.months[ym])S.months[ym]={};S.months[ym][m.id]=m;return ym}
+function quitar(m){var ym=m.fecha.slice(0,7);if(S.months[ym])delete S.months[ym][m.id];return ym}
+
+$('f').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var err=$('f-error'),monto=parseMonto($('f-monto').value);
+  if(isNaN(monto)||monto===0||(monto<0&&tipoF!=='ajuste')){err.textContent='Escribí un monto mayor que cero, por ejemplo 1.250 o 1250,50.';$('f-monto').focus();return}
+  var fecha=$('f-fecha').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){err.textContent='Elegí una fecha.';return}
+  var m={id:edit?edit.id:nuevoId(),tipo:tipoF,monto:monto,moneda:'UYU',fecha:fecha,creado:edit?edit.creado:Date.now()};
+  var claves=[];
+  if(tipoF==='gasto')m.medio=radio('medio')||'credito';
+  if(tipoF==='ajuste')m.medio=edit&&edit.medio||'cuenta';
+  if(!$('g-moneda').hidden&&radio('moneda')==='USD'){
+    var cot=parseMonto($('f-cot').value);
+    if(isNaN(cot)||cot<=0){err.textContent='Poné la cotización del dólar para pasar el monto a pesos.';$('f-cot').focus();return}
+    m.moneda='USD';m.cot=cot;
+    if(!S.cfg)S.cfg={};
+    if(S.cfg.cot!==cot){S.cfg.cot=cot;claves.push('cfg')}
+  }
+  if(tipoF==='gasto'&&radio('cat'))m.cat=radio('cat');
+  var nota=$('f-nota').value.trim();
+  if(nota&&tipoF!=='pago')m.nota=nota;
+  if(edit)claves.push(quitar(edit));
+  claves.push(poner(m));
+  var era=edit;cerrar();
+  guardar(claves.filter(function(k,i,a){return a.indexOf(k)===i}));
+  toast(era?'Cambio guardado':tipoF==='pago'?'Pago anotado':tipoF==='ingreso'?'Ingreso anotado':'Gasto anotado');
+});
+$('f-borrar').addEventListener('click',function(){
+  var b=this;
+  if(b.dataset.ok!=='1'){
+    b.dataset.ok='1';b.textContent='Tocá de nuevo para borrarlo';
+    clearTimeout(tBorrar);tBorrar=setTimeout(function(){b.dataset.ok='';b.textContent='Borrar'},3500);
+    return;
+  }
+  if(!edit)return;
+  var ym=quitar(edit);cerrar();guardar([ym]);toast('Movimiento borrado');
+});
+document.querySelectorAll('input[name="medio"],input[name="moneda"]').forEach(function(e){
+  e.addEventListener('change',function(){
+    ajustarForm();
+    if(tipoF==='pago'&&!edit&&e.name==='moneda'){
+      var t=totales(movs()),d=radio('moneda')==='USD'?t.tarUSD:t.tarUYU;
+      $('f-monto').value=d>0?aTexto(d):'';
+    }
+  });
+});
+(function(){
+  var c=$('f-cats');
+  CATS.forEach(function(n,i){
+    c.append(h('input',{type:'radio',name:'cat',id:'cat-'+i,value:n}),h('label',{for:'cat-'+i,text:n}));
+  });
+  // tocar la categoría elegida la desmarca
+  c.addEventListener('click',function(ev){
+    var l=ev.target.closest('label');if(!l)return;
+    var inp=$(l.getAttribute('for'));
+    if(inp&&inp.checked){ev.preventDefault();inp.checked=false}
+  });
+})();
+
+// ---- inicio y ajustes ----
+$('inicio').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  if(!puedeEscribir())return;
+  var err=$('ob-error'),c=parseMonto($('ob-cuenta').value),raw=$('ob-tarjeta').value.trim(),d=raw?parseMonto(raw):0;
+  if(isNaN(c)){err.textContent='Escribí cuánta plata tenés hoy, por ejemplo 45.000.';$('ob-cuenta').focus();return}
+  if(isNaN(d)||d<0){err.textContent='La deuda de la tarjeta tiene que ser un número, o dejala vacía.';$('ob-tarjeta').focus();return}
+  err.textContent='';
+  var f=hoy(),claves=[];
+  claves.push(poner({id:nuevoId(),tipo:'ajuste',medio:'cuenta',monto:c,moneda:'UYU',fecha:f,creado:Date.now(),nota:'Saldo inicial'}));
+  if(d>0)poner({id:nuevoId(),tipo:'ajuste',medio:'credito',monto:d,moneda:'UYU',fecha:f,creado:Date.now()+1,nota:'Deuda inicial de la tarjeta'});
+  $('ob-cuenta').value='';$('ob-tarjeta').value='';
+  guardar(claves);
+});
+$('btn-ajustes').addEventListener('click',function(){
+  if(!puedeEscribir())return;
+  var t=totales(movs());
+  $('a-cot').value=S.cfg&&S.cfg.cot?aTexto(S.cfg.cot):'';
+  $('a-cuenta').value='';$('a-cuenta').placeholder='Ahora figura '+fmt(t.cuenta);
+  $('a-tarjeta').value='';$('a-tarjeta').placeholder='Ahora figura '+fmt(t.tarUYU);
+  $('a-error').textContent='';
+  $('g-copia').hidden=modo!=='local';copiaPend=null;$('c-restaurar').textContent='Restaurar una copia';
+  $('ajustes').hidden=false;
+});
+$('fa').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var err=$('a-error'),claves=[],t=totales(movs()),f=hoy();
+  var rc=$('a-cot').value.trim(),rq=$('a-cuenta').value.trim(),rt=$('a-tarjeta').value.trim();
+  var cot=rc?parseMonto(rc):null,q=rq?parseMonto(rq):null,d=rt?parseMonto(rt):null;
+  if(rc&&(isNaN(cot)||cot<=0)){err.textContent='La cotización tiene que ser un número mayor que cero.';return}
+  if(rq&&isNaN(q)){err.textContent='El saldo de la cuenta tiene que ser un número.';return}
+  if(rt&&(isNaN(d)||d<0)){err.textContent='La deuda de la tarjeta tiene que ser cero o más.';return}
+  if(!S.cfg)S.cfg={};
+  if((cot||null)!==(S.cfg.cot||null)){if(cot)S.cfg.cot=cot;else delete S.cfg.cot;claves.push('cfg')}
+  if(q!==null&&r2(q-t.cuenta)!==0)claves.push(poner({id:nuevoId(),tipo:'ajuste',medio:'cuenta',monto:r2(q-t.cuenta),moneda:'UYU',fecha:f,creado:Date.now(),nota:'Corrección de saldo'}));
+  if(d!==null&&r2(d-t.tarUYU)!==0)claves.push(poner({id:nuevoId(),tipo:'ajuste',medio:'credito',monto:r2(d-t.tarUYU),moneda:'UYU',fecha:f,creado:Date.now()+1,nota:'Corrección de la tarjeta'}));
+  cerrar();
+  if(claves.length){guardar(claves.filter(function(k,i,a){return a.indexOf(k)===i}));toast('Ajustes guardados')}
+});
+
+// ---- copia de seguridad (solo cuando los datos viven en el dispositivo) ----
+var copiaPend=null;
+$('c-guardar').addEventListener('click',function(){
+  var txt=JSON.stringify({app:'saldo-real',v:1,fecha:hoy(),months:S.months,cfg:S.cfg||{}});
+  var nombre='saldo-real-'+hoy();
+  var arch=[[nombre+'.json','application/json'],[nombre+'.txt','text/plain']].map(function(p){try{return new File([txt],p[0],{type:p[1]})}catch(e){return null}});
+  for(var i=0;i<arch.length;i++){
+    if(arch[i]&&navigator.canShare&&navigator.canShare({files:[arch[i]]})){navigator.share({files:[arch[i]]}).catch(function(){});return}
+  }
+  var a=h('a',{href:URL.createObjectURL(new Blob([txt],{type:'application/json'})),download:nombre+'.json'});
+  document.body.append(a);a.click();a.remove();
+});
+$('c-restaurar').addEventListener('click',function(){
+  if(!copiaPend){$('c-archivo').value='';$('c-archivo').click();return}
+  S={months:copiaPend.months,cfg:copiaPend.cfg||{}};copiaPend=null;
+  lsSet(K_LOCAL,S);cerrar();render();toast('Copia restaurada');
+});
+$('c-archivo').addEventListener('change',function(){
+  var f=this.files&&this.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    var d=null;try{d=JSON.parse(r.result)}catch(e){}
+    if(!d||d.app!=='saldo-real'||!d.months||typeof d.months!=='object'){$('a-error').textContent='Ese archivo no es una copia de Saldo Real.';return}
+    var n=0,k;for(k in d.months)n+=Object.keys(d.months[k]||{}).length;
+    copiaPend=d;$('a-error').textContent='';
+    $('c-restaurar').textContent='Reemplazar todo por la copia del '+(d.fecha||'archivo')+' ('+n+' movimientos)';
+  };
+  r.readAsText(f);
+});
+if(AUTONOMA&&navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
+
+document.querySelectorAll('.acc').forEach(function(b){b.addEventListener('click',function(){abrir(b.dataset.tipo)})});
+document.querySelectorAll('[data-cerrar]').forEach(function(b){b.addEventListener('click',cerrar)});
+document.querySelectorAll('.overlay').forEach(function(o){o.addEventListener('click',function(ev){if(ev.target===o)cerrar()})});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape')cerrar()});
+$('aviso-btn').addEventListener('click',function(){vaciar()});
+
+render();
+conectar();
+})();
+</script>
+<script>if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});</script>
+</body>
+</html>
